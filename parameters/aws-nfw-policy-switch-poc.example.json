@@ -1,0 +1,38 @@
+[
+  {
+    "ParameterKey": "FirewallArn",
+    "ParameterValue": "arn:aws:network-firewall:ap-northeast-1:123456789012:firewall/<FIREWALL_NAME>"
+  },
+  {
+    "ParameterKey": "StrictFirewallPolicyArn",
+    "ParameterValue": "arn:aws:network-firewall:ap-northeast-1:123456789012:firewall-policy/<STRICT_FIREWALL_POLICY_NAME>"
+  },
+  {
+    "ParameterKey": "RelaxedFirewallPolicyArn",
+    "ParameterValue": "arn:aws:network-firewall:ap-northeast-1:123456789012:firewall-policy/<RELAXED_FIREWALL_POLICY_NAME>"
+  },
+  {
+    "ParameterKey": "LambdaFunctionName",
+    "ParameterValue": "nfw-policy-switcher"
+  },
+  {
+    "ParameterKey": "RelaxedScheduleExpression",
+    "ParameterValue": "cron(0 1 ? * SUN *)"
+  },
+  {
+    "ParameterKey": "StrictScheduleExpression",
+    "ParameterValue": "cron(0 5 ? * SUN *)"
+  },
+  {
+    "ParameterKey": "ScheduleTimezone",
+    "ParameterValue": "Asia/Tokyo"
+  },
+  {
+    "ParameterKey": "ScheduleState",
+    "ParameterValue": "DISABLED"
+  },
+  {
+    "ParameterKey": "LogRetentionInDays",
+    "ParameterValue": "30"
+  }
+]

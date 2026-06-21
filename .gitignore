@@ -1,0 +1,8 @@
+parameters/*.json
+!parameters/*.example.json
+.aws-sam/
+.pytest_cache/
+__pycache__/
+*.pyc
+.DS_Store
+Thumbs.db

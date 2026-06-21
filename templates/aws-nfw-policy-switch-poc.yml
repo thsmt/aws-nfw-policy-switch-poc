@@ -1,0 +1,259 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "PoC for switching AWS Network Firewall policies during patch maintenance windows."
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: "Network Firewall"
+        Parameters:
+          - FirewallArn
+          - StrictFirewallPolicyArn
+          - RelaxedFirewallPolicyArn
+      - Label:
+          default: "Lambda"
+        Parameters:
+          - LambdaFunctionName
+          - LogRetentionInDays
+      - Label:
+          default: "EventBridge Scheduler"
+        Parameters:
+          - RelaxedScheduleExpression
+          - StrictScheduleExpression
+          - ScheduleTimezone
+          - ScheduleState
+
+Parameters:
+  FirewallArn:
+    Type: String
+    Description: ARN of the AWS Network Firewall to update.
+    AllowedPattern: "^arn:(aws|aws-us-gov|aws-cn):network-firewall:[a-z0-9-]+:[0-9]{12}:firewall/.+$"
+
+  StrictFirewallPolicyArn:
+    Type: String
+    Description: ARN of the strict firewall policy for normal operation.
+    AllowedPattern: "^arn:(aws|aws-us-gov|aws-cn):network-firewall:[a-z0-9-]+:[0-9]{12}:firewall-policy/.+$"
+
+  RelaxedFirewallPolicyArn:
+    Type: String
+    Description: ARN of the relaxed firewall policy for patch operation.
+    AllowedPattern: "^arn:(aws|aws-us-gov|aws-cn):network-firewall:[a-z0-9-]+:[0-9]{12}:firewall-policy/.+$"
+
+  LambdaFunctionName:
+    Type: String
+    Description: Lambda function name.
+    Default: nfw-policy-switcher
+    AllowedPattern: "^[a-zA-Z0-9-_]{1,64}$"
+
+  RelaxedScheduleExpression:
+    Type: String
+    Description: Schedule expression to switch to the relaxed patch operation policy.
+    Default: "cron(0 1 ? * SUN *)"
+
+  StrictScheduleExpression:
+    Type: String
+    Description: Schedule expression to switch back to the strict normal operation policy.
+    Default: "cron(0 5 ? * SUN *)"
+
+  ScheduleTimezone:
+    Type: String
+    Description: Time zone for EventBridge Scheduler.
+    Default: Asia/Tokyo
+
+  ScheduleState:
+    Type: String
+    Description: Initial state of EventBridge Scheduler schedules.
+    Default: DISABLED
+    AllowedValues:
+      - ENABLED
+      - DISABLED
+
+  LogRetentionInDays:
+    Type: Number
+    Description: Retention period for Lambda logs.
+    Default: 30
+    AllowedValues:
+      - 1
+      - 3
+      - 7
+      - 14
+      - 30
+      - 60
+      - 90
+      - 180
+      - 365
+
+Resources:
+  PolicySwitcherLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${LambdaFunctionName}"
+      RetentionInDays: !Ref LogRetentionInDays
+
+  PolicySwitcherRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${AWS::StackName}-lambda-role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: network-firewall-policy-switch
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !Sub "${PolicySwitcherLogGroup.Arn}:*"
+              - Effect: Allow
+                Action:
+                  - network-firewall:DescribeFirewall
+                Resource: !Ref FirewallArn
+              - Effect: Allow
+                Action:
+                  - network-firewall:AssociateFirewallPolicy
+                Resource:
+                  - !Ref FirewallArn
+                  - !Ref StrictFirewallPolicyArn
+                  - !Ref RelaxedFirewallPolicyArn
+
+  PolicySwitcherFunction:
+    Type: AWS::Lambda::Function
+    DependsOn:
+      - PolicySwitcherLogGroup
+    Properties:
+      FunctionName: !Ref LambdaFunctionName
+      Description: "Switch AWS Network Firewall policy between strict and relaxed modes."
+      Runtime: python3.12
+      Handler: index.lambda_handler
+      Role: !GetAtt PolicySwitcherRole.Arn
+      Timeout: 60
+      Environment:
+        Variables:
+          FIREWALL_ARN: !Ref FirewallArn
+          STRICT_POLICY_ARN: !Ref StrictFirewallPolicyArn
+          RELAXED_POLICY_ARN: !Ref RelaxedFirewallPolicyArn
+      Code:
+        ZipFile: |
+          import json
+          import logging
+          import os
+
+          import boto3
+
+          logger = logging.getLogger()
+          logger.setLevel(logging.INFO)
+
+          MODE_TO_ENV = {
+              "strict": "STRICT_POLICY_ARN",
+              "relaxed": "RELAXED_POLICY_ARN",
+          }
+
+          client = boto3.client("network-firewall")
+
+          def lambda_handler(event, context):
+              logger.info("Received event: %s", json.dumps(event))
+
+              mode = str(event.get("mode", "")).lower()
+              if mode not in MODE_TO_ENV:
+                  return {
+                      "statusCode": 400,
+                      "body": json.dumps({
+                          "message": "mode must be strict or relaxed"
+                      }),
+                  }
+
+              firewall_arn = os.environ["FIREWALL_ARN"]
+              policy_arn = os.environ[MODE_TO_ENV[mode]]
+
+              firewall = client.describe_firewall(FirewallArn=firewall_arn)
+              update_token = firewall.get("UpdateToken")
+
+              request = {
+                  "FirewallArn": firewall_arn,
+                  "FirewallPolicyArn": policy_arn,
+              }
+              if update_token:
+                  request["UpdateToken"] = update_token
+
+              response = client.associate_firewall_policy(**request)
+              logger.info("Switched firewall policy to %s: %s", mode, policy_arn)
+
+              return {
+                  "statusCode": 200,
+                  "body": json.dumps({
+                      "mode": mode,
+                      "firewallArn": response.get("FirewallArn"),
+                      "firewallPolicyArn": response.get("FirewallPolicyArn"),
+                  }),
+              }
+
+  SchedulerExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${AWS::StackName}-scheduler-role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: scheduler.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: invoke-policy-switcher-lambda
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource: !GetAtt PolicySwitcherFunction.Arn
+
+  SwitchToRelaxedSchedule:
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      Name: !Sub "${AWS::StackName}-switch-to-relaxed"
+      Description: "Switch to relaxed patch operation firewall policy."
+      FlexibleTimeWindow:
+        Mode: "OFF"
+      ScheduleExpression: !Ref RelaxedScheduleExpression
+      ScheduleExpressionTimezone: !Ref ScheduleTimezone
+      State: !Ref ScheduleState
+      Target:
+        Arn: !GetAtt PolicySwitcherFunction.Arn
+        RoleArn: !GetAtt SchedulerExecutionRole.Arn
+        Input: "{\"mode\":\"relaxed\"}"
+
+  SwitchToStrictSchedule:
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      Name: !Sub "${AWS::StackName}-switch-to-strict"
+      Description: "Switch back to strict normal operation firewall policy."
+      FlexibleTimeWindow:
+        Mode: "OFF"
+      ScheduleExpression: !Ref StrictScheduleExpression
+      ScheduleExpressionTimezone: !Ref ScheduleTimezone
+      State: !Ref ScheduleState
+      Target:
+        Arn: !GetAtt PolicySwitcherFunction.Arn
+        RoleArn: !GetAtt SchedulerExecutionRole.Arn
+        Input: "{\"mode\":\"strict\"}"
+
+Outputs:
+  PolicySwitcherFunctionName:
+    Description: Lambda function name.
+    Value: !Ref PolicySwitcherFunction
+
+  SwitchToRelaxedScheduleName:
+    Description: EventBridge Scheduler schedule for relaxed policy.
+    Value: !Ref SwitchToRelaxedSchedule
+
+  SwitchToStrictScheduleName:
+    Description: EventBridge Scheduler schedule for strict policy.
+    Value: !Ref SwitchToStrictSchedule
