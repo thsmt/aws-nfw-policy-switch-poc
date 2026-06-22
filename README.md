@@ -114,6 +114,16 @@ cp parameters/aws-nfw-policy-switch-poc.example.json parameters/aws-nfw-policy-s
 | `ScheduleState` | `DISABLED` | Scheduler の初期状態 |
 | `LogRetentionInDays` | `30` | Lambda ログの保持日数 |
 
+## 出力値
+
+| 出力値 | 内容 |
+| --- | --- |
+| `PolicySwitcherFunctionName` | 作成された Lambda 関数名 |
+| `PolicySwitcherFunctionArn` | 作成された Lambda 関数 ARN |
+| `SwitchToRelaxedScheduleName` | パッチ運用ポリシーへ切り替える Scheduler 名 |
+| `SwitchToStrictScheduleName` | 通常運用ポリシーへ戻す Scheduler 名 |
+| `TargetFirewallArn` | 切り替え対象の AWS Network Firewall ARN |
+
 ## 前提条件
 
 - AWS Network Firewall が作成済みであること

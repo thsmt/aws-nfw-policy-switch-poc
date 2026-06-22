@@ -250,6 +250,10 @@ Outputs:
     Description: Lambda function name.
     Value: !Ref PolicySwitcherFunction
 
+  PolicySwitcherFunctionArn:
+    Description: Lambda function ARN.
+    Value: !GetAtt PolicySwitcherFunction.Arn
+
   SwitchToRelaxedScheduleName:
     Description: EventBridge Scheduler schedule for relaxed policy.
     Value: !Ref SwitchToRelaxedSchedule
@@ -257,3 +261,7 @@ Outputs:
   SwitchToStrictScheduleName:
     Description: EventBridge Scheduler schedule for strict policy.
     Value: !Ref SwitchToStrictSchedule
+
+  TargetFirewallArn:
+    Description: Target AWS Network Firewall ARN.
+    Value: !Ref FirewallArn
