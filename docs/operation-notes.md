@@ -23,7 +23,7 @@ EventBridge Scheduler の実行時刻は、Maintenance Window の開始時刻と
 
 | 項目 | 確認内容 |
 | --- | --- |
-| Lambda 手動実行 | `strict` と `relaxed` の両方で正常終了すること |
+| Lambda 手動実行 | `targetPolicy` に `normal` と `patch` を指定し、両方で正常終了すること |
 | Firewall Policy | AWS Network Firewall の関連付けが切り替わること |
 | Patch Manager | パッチ対象インスタンスが管理対象ノードとして認識されていること |
 | Scheduler | タイムゾーンと cron 式が Maintenance Window と合っていること |
@@ -32,7 +32,7 @@ EventBridge Scheduler の実行時刻は、Maintenance Window の開始時刻と
 
 通常運用ポリシーへ戻すスケジュールは、パッチ適用後の安全側の時刻に設定します。
 
-手動でパッチ運用ポリシーへ切り替えた場合も、作業終了後に `{"mode":"strict"}` の Lambda テストイベントを実行し、通常運用ポリシーへ戻っていることを確認します。
+手動でパッチ運用ポリシーへ切り替えた場合も、作業終了後に `{"targetPolicy":"normal"}` の Lambda テストイベントを実行し、通常運用ポリシーへ戻っていることを確認します。
 
 ## 障害時の確認
 

@@ -4,23 +4,23 @@
     "ParameterValue": "arn:aws:network-firewall:ap-northeast-1:123456789012:firewall/<FIREWALL_NAME>"
   },
   {
-    "ParameterKey": "StrictFirewallPolicyArn",
-    "ParameterValue": "arn:aws:network-firewall:ap-northeast-1:123456789012:firewall-policy/<STRICT_FIREWALL_POLICY_NAME>"
+    "ParameterKey": "NormalFirewallPolicyArn",
+    "ParameterValue": "arn:aws:network-firewall:ap-northeast-1:123456789012:firewall-policy/<NORMAL_FIREWALL_POLICY_NAME>"
   },
   {
-    "ParameterKey": "RelaxedFirewallPolicyArn",
-    "ParameterValue": "arn:aws:network-firewall:ap-northeast-1:123456789012:firewall-policy/<RELAXED_FIREWALL_POLICY_NAME>"
+    "ParameterKey": "PatchFirewallPolicyArn",
+    "ParameterValue": "arn:aws:network-firewall:ap-northeast-1:123456789012:firewall-policy/<PATCH_FIREWALL_POLICY_NAME>"
   },
   {
     "ParameterKey": "LambdaFunctionName",
     "ParameterValue": "nfw-policy-switcher"
   },
   {
-    "ParameterKey": "RelaxedScheduleExpression",
+    "ParameterKey": "PatchScheduleExpression",
     "ParameterValue": "cron(0 1 ? * SUN *)"
   },
   {
-    "ParameterKey": "StrictScheduleExpression",
+    "ParameterKey": "NormalScheduleExpression",
     "ParameterValue": "cron(0 5 ? * SUN *)"
   },
   {

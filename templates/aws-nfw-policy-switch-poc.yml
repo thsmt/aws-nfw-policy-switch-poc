@@ -8,8 +8,8 @@ Metadata:
           default: "Network Firewall"
         Parameters:
           - FirewallArn
-          - StrictFirewallPolicyArn
-          - RelaxedFirewallPolicyArn
+          - NormalFirewallPolicyArn
+          - PatchFirewallPolicyArn
       - Label:
           default: "Lambda"
         Parameters:
@@ -18,8 +18,8 @@ Metadata:
       - Label:
           default: "EventBridge Scheduler"
         Parameters:
-          - RelaxedScheduleExpression
-          - StrictScheduleExpression
+          - PatchScheduleExpression
+          - NormalScheduleExpression
           - ScheduleTimezone
           - ScheduleState
 
@@ -29,14 +29,14 @@ Parameters:
     Description: ARN of the AWS Network Firewall to update.
     AllowedPattern: "^arn:(aws|aws-us-gov|aws-cn):network-firewall:[a-z0-9-]+:[0-9]{12}:firewall/.+$"
 
-  StrictFirewallPolicyArn:
+  NormalFirewallPolicyArn:
     Type: String
-    Description: ARN of the strict firewall policy for normal operation.
+    Description: ARN of the firewall policy for normal operation.
     AllowedPattern: "^arn:(aws|aws-us-gov|aws-cn):network-firewall:[a-z0-9-]+:[0-9]{12}:firewall-policy/.+$"
 
-  RelaxedFirewallPolicyArn:
+  PatchFirewallPolicyArn:
     Type: String
-    Description: ARN of the relaxed firewall policy for patch operation.
+    Description: ARN of the firewall policy for patch operation.
     AllowedPattern: "^arn:(aws|aws-us-gov|aws-cn):network-firewall:[a-z0-9-]+:[0-9]{12}:firewall-policy/.+$"
 
   LambdaFunctionName:
@@ -45,14 +45,14 @@ Parameters:
     Default: nfw-policy-switcher
     AllowedPattern: "^[a-zA-Z0-9-_]{1,64}$"
 
-  RelaxedScheduleExpression:
+  PatchScheduleExpression:
     Type: String
-    Description: Schedule expression to switch to the relaxed patch operation policy.
+    Description: Schedule expression to switch to the patch operation policy.
     Default: "cron(0 1 ? * SUN *)"
 
-  StrictScheduleExpression:
+  NormalScheduleExpression:
     Type: String
-    Description: Schedule expression to switch back to the strict normal operation policy.
+    Description: Schedule expression to switch back to the normal operation policy.
     Default: "cron(0 5 ? * SUN *)"
 
   ScheduleTimezone:
@@ -120,8 +120,8 @@ Resources:
                   - network-firewall:AssociateFirewallPolicy
                 Resource:
                   - !Ref FirewallArn
-                  - !Ref StrictFirewallPolicyArn
-                  - !Ref RelaxedFirewallPolicyArn
+                  - !Ref NormalFirewallPolicyArn
+                  - !Ref PatchFirewallPolicyArn
 
   PolicySwitcherFunction:
     Type: AWS::Lambda::Function
@@ -129,7 +129,7 @@ Resources:
       - PolicySwitcherLogGroup
     Properties:
       FunctionName: !Ref LambdaFunctionName
-      Description: "Switch AWS Network Firewall policy between strict and relaxed modes."
+      Description: "Switch AWS Network Firewall policy between normal and patch operations."
       Runtime: python3.12
       Handler: index.lambda_handler
       Role: !GetAtt PolicySwitcherRole.Arn
@@ -137,8 +137,8 @@ Resources:
       Environment:
         Variables:
           FIREWALL_ARN: !Ref FirewallArn
-          STRICT_POLICY_ARN: !Ref StrictFirewallPolicyArn
-          RELAXED_POLICY_ARN: !Ref RelaxedFirewallPolicyArn
+          NORMAL_POLICY_ARN: !Ref NormalFirewallPolicyArn
+          PATCH_POLICY_ARN: !Ref PatchFirewallPolicyArn
       Code:
         ZipFile: |
           import json
@@ -150,9 +150,9 @@ Resources:
           logger = logging.getLogger()
           logger.setLevel(logging.INFO)
 
-          MODE_TO_ENV = {
-              "strict": "STRICT_POLICY_ARN",
-              "relaxed": "RELAXED_POLICY_ARN",
+          TARGET_POLICY_TO_ENV = {
+              "normal": "NORMAL_POLICY_ARN",
+              "patch": "PATCH_POLICY_ARN",
           }
 
           client = boto3.client("network-firewall")
@@ -160,17 +160,17 @@ Resources:
           def lambda_handler(event, context):
               logger.info("Received event: %s", json.dumps(event))
 
-              mode = str(event.get("mode", "")).lower()
-              if mode not in MODE_TO_ENV:
+              target_policy = str(event.get("targetPolicy", "")).lower()
+              if target_policy not in TARGET_POLICY_TO_ENV:
                   return {
                       "statusCode": 400,
                       "body": json.dumps({
-                          "message": "mode must be strict or relaxed"
+                          "message": "targetPolicy must be normal or patch"
                       }),
                   }
 
               firewall_arn = os.environ["FIREWALL_ARN"]
-              policy_arn = os.environ[MODE_TO_ENV[mode]]
+              policy_arn = os.environ[TARGET_POLICY_TO_ENV[target_policy]]
 
               firewall = client.describe_firewall(FirewallArn=firewall_arn)
               update_token = firewall.get("UpdateToken")
@@ -183,12 +183,12 @@ Resources:
                   request["UpdateToken"] = update_token
 
               response = client.associate_firewall_policy(**request)
-              logger.info("Switched firewall policy to %s: %s", mode, policy_arn)
+              logger.info("Switched firewall policy to %s: %s", target_policy, policy_arn)
 
               return {
                   "statusCode": 200,
                   "body": json.dumps({
-                      "mode": mode,
+                      "targetPolicy": target_policy,
                       "firewallArn": response.get("FirewallArn"),
                       "firewallPolicyArn": response.get("FirewallPolicyArn"),
                   }),
@@ -215,35 +215,35 @@ Resources:
                   - lambda:InvokeFunction
                 Resource: !GetAtt PolicySwitcherFunction.Arn
 
-  SwitchToRelaxedSchedule:
+  SwitchToPatchSchedule:
     Type: AWS::Scheduler::Schedule
     Properties:
-      Name: !Sub "${AWS::StackName}-switch-to-relaxed"
-      Description: "Switch to relaxed patch operation firewall policy."
+      Name: !Sub "${AWS::StackName}-switch-to-patch"
+      Description: "Switch to patch operation firewall policy."
       FlexibleTimeWindow:
         Mode: "OFF"
-      ScheduleExpression: !Ref RelaxedScheduleExpression
+      ScheduleExpression: !Ref PatchScheduleExpression
       ScheduleExpressionTimezone: !Ref ScheduleTimezone
       State: !Ref ScheduleState
       Target:
         Arn: !GetAtt PolicySwitcherFunction.Arn
         RoleArn: !GetAtt SchedulerExecutionRole.Arn
-        Input: "{\"mode\":\"relaxed\"}"
+        Input: "{\"targetPolicy\":\"patch\"}"
 
-  SwitchToStrictSchedule:
+  SwitchToNormalSchedule:
     Type: AWS::Scheduler::Schedule
     Properties:
-      Name: !Sub "${AWS::StackName}-switch-to-strict"
-      Description: "Switch back to strict normal operation firewall policy."
+      Name: !Sub "${AWS::StackName}-switch-to-normal"
+      Description: "Switch back to normal operation firewall policy."
       FlexibleTimeWindow:
         Mode: "OFF"
-      ScheduleExpression: !Ref StrictScheduleExpression
+      ScheduleExpression: !Ref NormalScheduleExpression
       ScheduleExpressionTimezone: !Ref ScheduleTimezone
       State: !Ref ScheduleState
       Target:
         Arn: !GetAtt PolicySwitcherFunction.Arn
         RoleArn: !GetAtt SchedulerExecutionRole.Arn
-        Input: "{\"mode\":\"strict\"}"
+        Input: "{\"targetPolicy\":\"normal\"}"
 
 Outputs:
   PolicySwitcherFunctionName:
@@ -254,13 +254,13 @@ Outputs:
     Description: Lambda function ARN.
     Value: !GetAtt PolicySwitcherFunction.Arn
 
-  SwitchToRelaxedScheduleName:
-    Description: EventBridge Scheduler schedule for relaxed policy.
-    Value: !Ref SwitchToRelaxedSchedule
+  SwitchToPatchScheduleName:
+    Description: EventBridge Scheduler schedule for patch operation policy.
+    Value: !Ref SwitchToPatchSchedule
 
-  SwitchToStrictScheduleName:
-    Description: EventBridge Scheduler schedule for strict policy.
-    Value: !Ref SwitchToStrictSchedule
+  SwitchToNormalScheduleName:
+    Description: EventBridge Scheduler schedule for normal operation policy.
+    Value: !Ref SwitchToNormalSchedule
 
   TargetFirewallArn:
     Description: Target AWS Network Firewall ARN.

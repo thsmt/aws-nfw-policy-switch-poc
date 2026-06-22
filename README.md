@@ -30,8 +30,8 @@ AWS Network Firewall の Firewall Policy を、Systems Manager Patch Manager の
 ```mermaid
 flowchart LR
     SSM[Systems Manager<br>Maintenance Window] --> Scheduler[EventBridge Scheduler]
-    Scheduler -->|{"mode":"relaxed"}| Lambda[Lambda<br>policy switcher]
-    Scheduler -->|{"mode":"strict"}| Lambda
+    Scheduler -->|{"targetPolicy":"patch"}| Lambda[Lambda<br>policy switcher]
+    Scheduler -->|{"targetPolicy":"normal"}| Lambda
     Lambda -->|AssociateFirewallPolicy| NFW[AWS Network Firewall]
     NFW --> Normal[通常運用 Firewall Policy]
     NFW --> Patch[パッチ運用 Firewall Policy]
@@ -105,11 +105,11 @@ cp parameters/aws-nfw-policy-switch-poc.example.json parameters/aws-nfw-policy-s
 | パラメータ | デフォルト | 説明 |
 | --- | --- | --- |
 | `FirewallArn` | なし | 切り替え対象の AWS Network Firewall ARN |
-| `StrictFirewallPolicyArn` | なし | 通常運用 Firewall Policy ARN |
-| `RelaxedFirewallPolicyArn` | なし | パッチ運用 Firewall Policy ARN |
+| `NormalFirewallPolicyArn` | なし | 通常運用 Firewall Policy ARN |
+| `PatchFirewallPolicyArn` | なし | パッチ運用 Firewall Policy ARN |
 | `LambdaFunctionName` | `nfw-policy-switcher` | 作成する Lambda 関数名 |
-| `RelaxedScheduleExpression` | `cron(0 1 ? * SUN *)` | パッチ運用ポリシーへ切り替えるスケジュール例 |
-| `StrictScheduleExpression` | `cron(0 5 ? * SUN *)` | 通常運用ポリシーへ戻すスケジュール例 |
+| `PatchScheduleExpression` | `cron(0 1 ? * SUN *)` | パッチ運用ポリシーへ切り替えるスケジュール例 |
+| `NormalScheduleExpression` | `cron(0 5 ? * SUN *)` | 通常運用ポリシーへ戻すスケジュール例 |
 | `ScheduleTimezone` | `Asia/Tokyo` | EventBridge Scheduler のタイムゾーン |
 | `ScheduleState` | `DISABLED` | Scheduler の初期状態 |
 | `LogRetentionInDays` | `30` | Lambda ログの保持日数 |
@@ -120,8 +120,8 @@ cp parameters/aws-nfw-policy-switch-poc.example.json parameters/aws-nfw-policy-s
 | --- | --- |
 | `PolicySwitcherFunctionName` | 作成された Lambda 関数名 |
 | `PolicySwitcherFunctionArn` | 作成された Lambda 関数 ARN |
-| `SwitchToRelaxedScheduleName` | パッチ運用ポリシーへ切り替える Scheduler 名 |
-| `SwitchToStrictScheduleName` | 通常運用ポリシーへ戻す Scheduler 名 |
+| `SwitchToPatchScheduleName` | パッチ運用ポリシーへ切り替える Scheduler 名 |
+| `SwitchToNormalScheduleName` | 通常運用ポリシーへ戻す Scheduler 名 |
 | `TargetFirewallArn` | 切り替え対象の AWS Network Firewall ARN |
 
 ## 前提条件
@@ -155,7 +155,7 @@ aws cloudformation create-stack \
 
 ```json
 {
-  "mode": "relaxed"
+  "targetPolicy": "patch"
 }
 ```
 
@@ -163,7 +163,7 @@ aws cloudformation create-stack \
 
 ```json
 {
-  "mode": "strict"
+  "targetPolicy": "normal"
 }
 ```
 

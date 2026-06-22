@@ -29,12 +29,36 @@ cp parameters/aws-nfw-policy-switch-poc.example.json parameters/aws-nfw-policy-s
     "ParameterValue": "arn:aws:network-firewall:ap-northeast-1:123456789012:firewall/<FIREWALL_NAME>"
   },
   {
-    "ParameterKey": "StrictFirewallPolicyArn",
-    "ParameterValue": "arn:aws:network-firewall:ap-northeast-1:123456789012:firewall-policy/<STRICT_FIREWALL_POLICY_NAME>"
+    "ParameterKey": "NormalFirewallPolicyArn",
+    "ParameterValue": "arn:aws:network-firewall:ap-northeast-1:123456789012:firewall-policy/<NORMAL_FIREWALL_POLICY_NAME>"
   },
   {
-    "ParameterKey": "RelaxedFirewallPolicyArn",
-    "ParameterValue": "arn:aws:network-firewall:ap-northeast-1:123456789012:firewall-policy/<RELAXED_FIREWALL_POLICY_NAME>"
+    "ParameterKey": "PatchFirewallPolicyArn",
+    "ParameterValue": "arn:aws:network-firewall:ap-northeast-1:123456789012:firewall-policy/<PATCH_FIREWALL_POLICY_NAME>"
+  },
+  {
+    "ParameterKey": "LambdaFunctionName",
+    "ParameterValue": "nfw-policy-switcher"
+  },
+  {
+    "ParameterKey": "PatchScheduleExpression",
+    "ParameterValue": "cron(0 1 ? * SUN *)"
+  },
+  {
+    "ParameterKey": "NormalScheduleExpression",
+    "ParameterValue": "cron(0 5 ? * SUN *)"
+  },
+  {
+    "ParameterKey": "ScheduleTimezone",
+    "ParameterValue": "Asia/Tokyo"
+  },
+  {
+    "ParameterKey": "ScheduleState",
+    "ParameterValue": "DISABLED"
+  },
+  {
+    "ParameterKey": "LogRetentionInDays",
+    "ParameterValue": "30"
   }
 ]
 ```
@@ -69,7 +93,7 @@ aws cloudformation update-stack \
 
 ```json
 {
-  "mode": "relaxed"
+  "targetPolicy": "patch"
 }
 ```
 
@@ -77,7 +101,7 @@ aws cloudformation update-stack \
 
 ```json
 {
-  "mode": "strict"
+  "targetPolicy": "normal"
 }
 ```
 
@@ -91,8 +115,8 @@ Lambda の手動テストが完了したら、Patch Manager の Maintenance Wind
 
 | スケジュール | 目的 | 例 |
 | --- | --- | --- |
-| `RelaxedScheduleExpression` | Maintenance Window 開始前にパッチ運用ポリシーへ切り替え | `cron(0 1 ? * SUN *)` |
-| `StrictScheduleExpression` | Maintenance Window 終了後に通常運用ポリシーへ戻す | `cron(0 5 ? * SUN *)` |
+| `PatchScheduleExpression` | Maintenance Window 開始前にパッチ運用ポリシーへ切り替え | `cron(0 1 ? * SUN *)` |
+| `NormalScheduleExpression` | Maintenance Window 終了後に通常運用ポリシーへ戻す | `cron(0 5 ? * SUN *)` |
 
 スケジュールの時刻は、Patch Manager の実行開始前と終了後に余裕を持たせて設定します。
 
