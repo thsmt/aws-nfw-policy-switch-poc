@@ -38,8 +38,8 @@ AWS Network Firewall の Firewall Policy を、Systems Manager Patch Manager の
 ```mermaid
 flowchart LR
     SSM[Systems Manager<br>Maintenance Window] --> Scheduler[EventBridge Scheduler]
-    Scheduler -->|{"targetPolicy":"patch"}| Lambda[Lambda<br>policy switcher]
-    Scheduler -->|{"targetPolicy":"normal"}| Lambda
+    Scheduler -->|targetPolicy patch| Lambda[Lambda<br>policy switcher]
+    Scheduler -->|targetPolicy normal| Lambda
     Lambda -->|AssociateFirewallPolicy| NFW[AWS Network Firewall]
     NFW --> Normal[通常運用 Firewall Policy]
     NFW --> Patch[パッチ運用 Firewall Policy]

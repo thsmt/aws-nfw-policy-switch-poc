@@ -18,12 +18,12 @@ sequenceDiagram
     participant Normal as 通常運用 Firewall Policy
     participant Patch as パッチ運用 Firewall Policy
 
-    Scheduler->>Lambda: {"targetPolicy":"patch"}
+    Scheduler->>Lambda: targetPolicy patch
     Lambda->>NFW: DescribeFirewall
     Lambda->>NFW: AssociateFirewallPolicy(PatchPolicyArn)
     NFW-->>Patch: パッチ運用ポリシーを関連付け
 
-    Scheduler->>Lambda: {"targetPolicy":"normal"}
+    Scheduler->>Lambda: targetPolicy normal
     Lambda->>NFW: DescribeFirewall
     Lambda->>NFW: AssociateFirewallPolicy(NormalPolicyArn)
     NFW-->>Normal: 通常運用ポリシーを関連付け
