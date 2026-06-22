@@ -70,7 +70,8 @@ flowchart LR
 ├── docs
 │   ├── architecture.md
 │   ├── deployment-guide.md
-│   └── operation-notes.md
+│   ├── operation-notes.md
+│   └── security-considerations.md
 ├── parameters
 │   └── aws-nfw-policy-switch-poc.example.json
 └── templates
@@ -125,6 +126,8 @@ cp parameters/aws-nfw-policy-switch-poc.example.json parameters/aws-nfw-policy-s
 詳細な手順は [docs/deployment-guide.md](docs/deployment-guide.md) に記載しています。
 
 運用時の確認観点は [docs/operation-notes.md](docs/operation-notes.md) に記載しています。
+
+セキュリティ上の考慮点は [docs/security-considerations.md](docs/security-considerations.md) に記載しています。
 
 ### スタック作成
 
