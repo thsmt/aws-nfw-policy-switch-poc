@@ -35,16 +35,7 @@ AWS Network Firewall の Firewall Policy を、Systems Manager Patch Manager の
 
 このリポジトリの CloudFormation テンプレートは、既存の AWS Network Firewall と 2 つの Firewall Policy を対象に、関連付けの切り替え処理だけを作成します。
 
-```mermaid
-flowchart LR
-    SSM[Systems Manager<br>Maintenance Window] --> Scheduler[EventBridge Scheduler]
-    Scheduler -->|targetPolicy patch| Lambda[Lambda<br>policy switcher]
-    Scheduler -->|targetPolicy normal| Lambda
-    Lambda -->|AssociateFirewallPolicy| NFW[AWS Network Firewall]
-    NFW --> Normal[通常運用 Firewall Policy]
-    NFW --> Patch[パッチ運用 Firewall Policy]
-    NFW --> CDN[CDN / Package Repository]
-```
+<img src="./diagram/aws-nfw-policy-switch-poc-architecture.png" alt="aws-nfw-policy-switch-poc architecture" width="900">
 
 構成図を作成する場合は、VPC、Subnet、EC2、NAT Gateway などの既存環境を詳細に描き込むよりも、EventBridge Scheduler、Lambda、AWS Network Firewall、2 つの Firewall Policy の関係を中心に整理します。
 
@@ -114,13 +105,14 @@ Lambda 関数名は、CloudFormation パラメータ `LambdaFunctionName` で変
 .
 ├── README.md
 ├── LICENSE
+├── diagram
+│   ├── aws-nfw-policy-switch-poc-architecture.png
+│   ├── lambda-test-event-patch.png
+│   ├── lambda-test-result-patch.png
+│   └── network-firewall-policy-patch.png
 ├── docs
 │   ├── architecture.md
 │   ├── deployment-guide.md
-│   ├── images
-│   │   ├── lambda-test-event-patch.png
-│   │   ├── lambda-test-result-patch.png
-│   │   └── network-firewall-policy-patch.png
 │   ├── operation-notes.md
 │   └── security-considerations.md
 ├── parameters
@@ -226,15 +218,15 @@ aws cloudformation create-stack \
 }
 ```
 
-<img src="./docs/images/lambda-test-event-patch.png" alt="Lambda test event for patch policy" width="900">
+<img src="./diagram/lambda-test-event-patch.png" alt="Lambda test event for patch policy" width="900">
 
 実行結果が成功し、戻り値に `targetPolicy` と `firewallPolicyArn` が出力されることを確認します。
 
-<img src="./docs/images/lambda-test-result-patch.png" alt="Lambda test result for patch policy" width="900">
+<img src="./diagram/lambda-test-result-patch.png" alt="Lambda test result for patch policy" width="900">
 
 AWS Network Firewall の画面で、関連付けられた Firewall Policy が `PatchOperation-Policy` に切り替わっていることを確認します。
 
-<img src="./docs/images/network-firewall-policy-patch.png" alt="Network Firewall associated patch policy" width="900">
+<img src="./diagram/network-firewall-policy-patch.png" alt="Network Firewall associated patch policy" width="900">
 
 確認後は、通常運用ポリシーへ戻します。
 

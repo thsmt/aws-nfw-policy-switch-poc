@@ -10,24 +10,11 @@
 
 ## 構成
 
-```mermaid
-sequenceDiagram
-    participant Scheduler as EventBridge Scheduler
-    participant Lambda as Lambda policy switcher
-    participant NFW as AWS Network Firewall
-    participant Normal as 通常運用 Firewall Policy
-    participant Patch as パッチ運用 Firewall Policy
+<img src="../diagram/aws-nfw-policy-switch-poc-architecture.png" alt="aws-nfw-policy-switch-poc architecture" width="900">
 
-    Scheduler->>Lambda: targetPolicy patch
-    Lambda->>NFW: DescribeFirewall
-    Lambda->>NFW: AssociateFirewallPolicy(PatchPolicyArn)
-    NFW-->>Patch: パッチ運用ポリシーを関連付け
+この PoC では、既存の AWS Network Firewall に対して、通常運用ポリシーとパッチ運用ポリシーの関連付けを切り替えます。
 
-    Scheduler->>Lambda: targetPolicy normal
-    Lambda->>NFW: DescribeFirewall
-    Lambda->>NFW: AssociateFirewallPolicy(NormalPolicyArn)
-    NFW-->>Normal: 通常運用ポリシーを関連付け
-```
+EventBridge Scheduler は Maintenance Window の前後で Lambda を起動し、`targetPolicy` の値に応じて `normal` または `patch` の Firewall Policy ARN を関連付けます。
 
 <br>
 
