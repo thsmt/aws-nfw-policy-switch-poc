@@ -117,6 +117,10 @@ Lambda 関数名は、CloudFormation パラメータ `LambdaFunctionName` で変
 ├── docs
 │   ├── architecture.md
 │   ├── deployment-guide.md
+│   ├── images
+│   │   ├── lambda-test-event-patch.png
+│   │   ├── lambda-test-result-patch.png
+│   │   └── network-firewall-policy-patch.png
 │   ├── operation-notes.md
 │   └── security-considerations.md
 ├── parameters
@@ -210,7 +214,11 @@ aws cloudformation create-stack \
 
 ### Lambda テスト
 
-パッチ運用ポリシーへ切り替える場合:
+まずは EventBridge Scheduler を有効化せず、Lambda コンソールから手動でテストします。
+
+以下の画像では、AWS アカウント ID、ARN、VPC ID、Subnet ID などの環境固有情報をマスクしています。
+
+パッチ運用ポリシーへ切り替える場合は、テストイベントに以下を指定します。
 
 ```json
 {
@@ -218,13 +226,25 @@ aws cloudformation create-stack \
 }
 ```
 
-通常運用ポリシーへ戻す場合:
+<img src="./docs/images/lambda-test-event-patch.png" alt="Lambda test event for patch policy" width="900">
+
+実行結果が成功し、戻り値に `targetPolicy` と `firewallPolicyArn` が出力されることを確認します。
+
+<img src="./docs/images/lambda-test-result-patch.png" alt="Lambda test result for patch policy" width="900">
+
+AWS Network Firewall の画面で、関連付けられた Firewall Policy が `PatchOperation-Policy` に切り替わっていることを確認します。
+
+<img src="./docs/images/network-firewall-policy-patch.png" alt="Network Firewall associated patch policy" width="900">
+
+確認後は、通常運用ポリシーへ戻します。
 
 ```json
 {
   "targetPolicy": "normal"
 }
 ```
+
+手動テストでは、`patch` への切り替え確認と `normal` への戻し確認を必ずセットで実施します。
 
 ### スケジュール有効化
 
