@@ -4,6 +4,8 @@ AWS Network Firewall の Firewall Policy を、Systems Manager Patch Manager の
 
 通常運用では厳格な Firewall Policy を使用し、パッチ適用の時間帯だけ CDN やパッケージリポジトリへの通信を許可したパッチ運用用 Firewall Policy に切り替えます。
 
+<br>
+
 ## 概要
 
 このリポジトリでは、Amazon EventBridge Scheduler から AWS Lambda を起動し、AWS Network Firewall に関連付ける Firewall Policy を自動で切り替える構成を CloudFormation で作成します。
@@ -15,6 +17,8 @@ AWS Network Firewall の Firewall Policy を、Systems Manager Patch Manager の
 | 通常運用ポリシー | 日常運用向けの厳格な通信制御 |
 | パッチ運用ポリシー | Patch Manager 実行中に必要な宛先を一時的に許可 |
 
+<br>
+
 ## リポジトリの目的
 
 この PoC の目的は、セキュリティを維持しながら、OS パッケージ更新に必要な一時的な外部通信を運用時間内だけ許可することです。
@@ -25,7 +29,11 @@ AWS Network Firewall の Firewall Policy を、Systems Manager Patch Manager の
 
 そのため、この構成では Firewall Policy の中身を都度編集するのではなく、通常運用用とパッチ運用用の 2 つの Firewall Policy を事前に用意し、メンテナンス時間だけ関連付けを切り替えます。
 
+<br>
+
 ## アーキテクチャ
+
+このリポジトリの CloudFormation テンプレートは、既存の AWS Network Firewall と 2 つの Firewall Policy を対象に、関連付けの切り替え処理だけを作成します。
 
 ```mermaid
 flowchart LR
@@ -35,9 +43,12 @@ flowchart LR
     Lambda -->|AssociateFirewallPolicy| NFW[AWS Network Firewall]
     NFW --> Normal[通常運用 Firewall Policy]
     NFW --> Patch[パッチ運用 Firewall Policy]
-    EC2[Patch Manager 対象 EC2] --> NFW
     NFW --> CDN[CDN / Package Repository]
 ```
+
+構成図を作成する場合は、VPC、Subnet、EC2、NAT Gateway などの既存環境を詳細に描き込むよりも、EventBridge Scheduler、Lambda、AWS Network Firewall、2 つの Firewall Policy の関係を中心に整理します。
+
+<br>
 
 ## 作成される主な AWS リソース
 
@@ -48,6 +59,22 @@ flowchart LR
 | Amazon EventBridge Scheduler | メンテナンス前後の Lambda 起動 |
 | IAM Role for Scheduler | Lambda Invoke 用の実行ロール |
 | CloudWatch Logs Log Group | Lambda 実行ログ |
+
+<br>
+
+## Lambda 仕様
+
+| 項目 | 値 |
+| --- | --- |
+| Lambda 関数名 | `nfw-policy-switcher` |
+| Runtime | `python3.12` |
+| Handler | `index.lambda_handler` |
+| Timeout | `60` 秒 |
+| Payload | `targetPolicy` に `patch` または `normal` を指定 |
+
+Lambda 関数名は、CloudFormation パラメータ `LambdaFunctionName` で変更できます。
+
+<br>
 
 ## 手動で用意するもの
 
@@ -62,11 +89,31 @@ flowchart LR
 | パッチ運用 Firewall Policy | パッチ適用時に関連付ける一時緩和ポリシー |
 | Patch Manager / Maintenance Window | パッチ適用処理の実行基盤 |
 
+<br>
+
+## 命名例
+
+構成図やパラメータ例では、以下のような名前にすると役割が分かりやすくなります。
+
+| 対象 | 命名例 | 用途 |
+| --- | --- | --- |
+| 通常運用 Firewall Policy | `NormalOperation-Policy` | 通常時に関連付ける厳格な Firewall Policy |
+| パッチ運用 Firewall Policy | `PatchOperation-Policy` | Maintenance Window 中だけ関連付ける Firewall Policy |
+| Lambda | `nfw-policy-switcher` | Firewall Policy の関連付け切り替え |
+| Scheduler | `switch-to-patch` / `switch-to-normal` | パッチ運用への切り替え / 通常運用への戻し |
+
+実環境では、必要に応じてシステム名や環境名を前置します。
+
+例: `<SYSTEM_NAME>-normal-operation-policy`、`<SYSTEM_NAME>-patch-operation-policy`
+
+<br>
+
 ## ディレクトリ構成
 
 ```text
 .
 ├── README.md
+├── LICENSE
 ├── docs
 │   ├── architecture.md
 │   ├── deployment-guide.md
@@ -78,11 +125,15 @@ flowchart LR
     └── aws-nfw-policy-switch-poc.yml
 ```
 
+<br>
+
 ## CloudFormation テンプレート
 
 | テンプレート | 内容 |
 | --- | --- |
 | [templates/aws-nfw-policy-switch-poc.yml](templates/aws-nfw-policy-switch-poc.yml) | Lambda、EventBridge Scheduler、IAM Role、CloudWatch Logs を作成 |
+
+<br>
 
 ## パラメータファイル
 
@@ -100,6 +151,8 @@ cp parameters/aws-nfw-policy-switch-poc.example.json parameters/aws-nfw-policy-s
 
 `parameters/aws-nfw-policy-switch-poc.json` には、自分の環境に合わせた ARN やスケジュールを設定します。実環境用の値を含むため、GitHub にはコミットしない運用とします。
 
+<br>
+
 ## パラメータ
 
 | パラメータ | デフォルト | 説明 |
@@ -114,6 +167,8 @@ cp parameters/aws-nfw-policy-switch-poc.example.json parameters/aws-nfw-policy-s
 | `ScheduleState` | `DISABLED` | Scheduler の初期状態 |
 | `LogRetentionInDays` | `30` | Lambda ログの保持日数 |
 
+<br>
+
 ## 出力値
 
 | 出力値 | 内容 |
@@ -124,12 +179,16 @@ cp parameters/aws-nfw-policy-switch-poc.example.json parameters/aws-nfw-policy-s
 | `SwitchToNormalScheduleName` | 通常運用ポリシーへ戻す Scheduler 名 |
 | `TargetFirewallArn` | 切り替え対象の AWS Network Firewall ARN |
 
+<br>
+
 ## 前提条件
 
 - AWS Network Firewall が作成済みであること
 - 通常運用用とパッチ運用用の Firewall Policy が作成済みであること
 - Systems Manager Patch Manager の対象インスタンスが管理対象ノードとして認識されていること
 - Patch Manager の Maintenance Window と、ポリシー切り替え時刻の前後関係を設計していること
+
+<br>
 
 ## デプロイ方法
 
@@ -178,6 +237,8 @@ aws cloudformation create-stack \
 CloudFormation スタックを削除すると、Lambda、EventBridge Scheduler、IAM Role、CloudWatch Logs Log Group が削除されます。
 
 既存の AWS Network Firewall と Firewall Policy は削除されません。
+
+<br>
 
 ## 参考
 

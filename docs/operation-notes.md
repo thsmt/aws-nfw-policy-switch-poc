@@ -8,6 +8,8 @@
 
 パッチ適用後は、通常運用ポリシーへ戻します。
 
+<br>
+
 ## 切り替えタイミング
 
 EventBridge Scheduler の実行時刻は、Maintenance Window の開始時刻と終了時刻に対して少し余裕を持たせます。
@@ -16,6 +18,8 @@ EventBridge Scheduler の実行時刻は、Maintenance Window の開始時刻と
 | --- | --- | --- |
 | Maintenance Window 開始前 | パッチ運用ポリシーへ切り替え | パッケージ取得前に通信許可を反映するため |
 | Maintenance Window 終了後 | 通常運用ポリシーへ戻す | パッチ適用後の不要な通信許可を残さないため |
+
+<br>
 
 ## 事前確認
 
@@ -28,11 +32,15 @@ EventBridge Scheduler の実行時刻は、Maintenance Window の開始時刻と
 | Patch Manager | パッチ対象インスタンスが管理対象ノードとして認識されていること |
 | Scheduler | タイムゾーンと cron 式が Maintenance Window と合っていること |
 
+<br>
+
 ## 戻し忘れ対策
 
 通常運用ポリシーへ戻すスケジュールは、パッチ適用後の安全側の時刻に設定します。
 
 手動でパッチ運用ポリシーへ切り替えた場合も、作業終了後に `{"targetPolicy":"normal"}` の Lambda テストイベントを実行し、通常運用ポリシーへ戻っていることを確認します。
+
+<br>
 
 ## 障害時の確認
 

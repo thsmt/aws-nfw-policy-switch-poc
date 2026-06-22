@@ -12,6 +12,8 @@
 | Patch Manager | Maintenance Window の開始時刻と終了時刻を確認 |
 | 実行権限 | CloudFormation で IAM Role、Lambda、Scheduler を作成できる権限を確認 |
 
+<br>
+
 ## パラメータファイル作成
 
 サンプルファイルをコピーします。
@@ -65,6 +67,8 @@ cp parameters/aws-nfw-policy-switch-poc.example.json parameters/aws-nfw-policy-s
 
 `ScheduleState` は、初回デプロイ時は `DISABLED` を推奨します。
 
+<br>
+
 ## スタック作成
 
 ```bash
@@ -84,6 +88,8 @@ aws cloudformation update-stack \
   --parameters file://parameters/aws-nfw-policy-switch-poc.json \
   --capabilities CAPABILITY_NAMED_IAM
 ```
+
+<br>
 
 ## Lambda テスト
 
@@ -107,6 +113,8 @@ aws cloudformation update-stack \
 
 テスト後、AWS Network Firewall の画面で、対象 Firewall に関連付けられている Firewall Policy が切り替わっていることを確認します。
 
+<br>
+
 ## EventBridge Scheduler 有効化
 
 Lambda の手動テストが完了したら、Patch Manager の Maintenance Window に合わせてスケジュールを調整します。
@@ -121,6 +129,8 @@ Lambda の手動テストが完了したら、Patch Manager の Maintenance Wind
 スケジュールの時刻は、Patch Manager の実行開始前と終了後に余裕を持たせて設定します。
 
 本番運用に入る場合は、`ScheduleState` を `ENABLED` に変更してスタックを更新します。
+
+<br>
 
 ## 削除
 
